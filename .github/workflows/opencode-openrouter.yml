@@ -23,26 +23,12 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Write OpenCode config
+      - name: Write OpenCode config and auth
         shell: bash
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          mkdir -p ~/.local/share/opencode
-          cat > ~/.local/share/opencode/auth.json << 'EOF'
-          {
-            "openrouter": {
-              "type": "api",
-              "key": "${OPENROUTER_API_KEY}"
-            }
-          }
-          EOF
-          # Replace placeholder with actual key from env
-          sed -i "s|\${OPENROUTER_API_KEY}|${OPENROUTER_API_KEY}|g" ~/.local/share/opencode/auth.json
-          echo "Auth config written:"
-          cat ~/.local/share/opencode/auth.json | head -5
-
-      - name: Write opencode.json
-        shell: bash
-        run: |
+          # Write opencode.json to project directory
           cat > opencode.json << 'EOF'
           {
             "$schema": "https://opencode.ai/config.json",
@@ -56,6 +42,18 @@ jobs:
           }
           EOF
           echo "opencode.json written to $(pwd)"
+
+          # Write auth.json with the API key
+          mkdir -p ~/.local/share/opencode
+          cat > ~/.local/share/opencode/auth.json << EOF
+          {
+            "openrouter": {
+              "type": "api",
+              "key": "${OPENROUTER_API_KEY}"
+            }
+          }
+          EOF
+          echo "auth.json written"
 
       - name: Get opencode version
         id: version
@@ -82,11 +80,11 @@ jobs:
 
       - name: Run opencode
         shell: bash
+        env:
+          MODEL: ${{ inputs.model }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           echo "Working directory: $(pwd)"
           echo "auth.json exists: $(test -f ~/.local/share/opencode/auth.json && echo yes || echo no)"
           echo "opencode.json exists: $(test -f opencode.json && echo yes || echo no)"
           opencode github run
-        env:
-          MODEL: ${{ inputs.model }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
