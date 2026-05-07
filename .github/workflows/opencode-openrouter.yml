@@ -29,19 +29,21 @@ jobs:
           MODEL: ${{ inputs.model }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          cat > opencode.json << EOF
-          {
-            "$schema": "https://opencode.ai/config.json",
-            "model": "${MODEL}",
-            "provider": {
-              "openrouter": {
-                "options": {
-                  "apiKey": "${OPENROUTER_API_KEY}"
+          # Use jq to generate valid JSON with proper escaping
+          jq -n \
+            --arg model "$MODEL" \
+            --arg apiKey "$OPENROUTER_API_KEY" \
+            '{
+              "$schema": "https://opencode.ai/config.json",
+              "model": $model,
+              "provider": {
+                "openrouter": {
+                  "options": {
+                    "apiKey": $apiKey
+                  }
                 }
               }
-            }
-          }
-          EOF
+            }' > opencode.json
           echo "opencode.json written to $(pwd)"
 
       - name: Get opencode version
@@ -74,6 +76,6 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           echo "Working directory: $(pwd)"
-          echo "opencode.json exists: $(test -f opencode.json && echo yes || echo no)"
+          echo "opencode.json content:"
           cat opencode.json
           opencode github run
