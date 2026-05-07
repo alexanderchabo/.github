@@ -1,0 +1,75 @@
+name: 'Reusable OpenCode with OpenRouter'
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        description: 'OpenRouter model to use (provider/model format)'
+        required: false
+        type: string
+        default: 'openrouter/owl-alpha'
+    secrets:
+      OPENROUTER_API_KEY:
+        description: 'OpenRouter API key'
+        required: true
+
+jobs:
+  opencode:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Write OpenCode config
+        shell: bash
+        run: |
+          cat > opencode.json << 'EOF'
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
+              "openrouter": {
+                "options": {
+                  "apiKey": "{env:OPENROUTER_API_KEY}"
+                }
+              }
+            }
+          }
+          EOF
+
+      - name: Get opencode version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(curl -sf https://api.github.com/repos/anomalyco/opencode/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
+          echo "version=${VERSION:-latest}" >> $GITHUB_OUTPUT
+
+      - name: Cache opencode
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.opencode/bin
+          key: opencode-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.version }}
+
+      - name: Install opencode
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: curl -fsSL https://opencode.ai/install | bash
+
+      - name: Add opencode to PATH
+        shell: bash
+        run: echo "$HOME/.opencode/bin" >> $GITHUB_PATH
+
+      - name: Run opencode
+        shell: bash
+        run: opencode github run
+        env:
+          MODEL: ${{ inputs.model }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

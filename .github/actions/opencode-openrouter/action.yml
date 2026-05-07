@@ -1,0 +1,61 @@
+name: 'OpenCode with OpenRouter'
+description: |
+  Run opencode with OpenRouter provider. Writes opencode.json config and runs opencode.
+  Use this after actions/checkout and opencode installation.
+inputs:
+  model:
+    description: 'OpenRouter model (e.g., openrouter/owl-alpha)'
+    required: false
+    default: 'openrouter/owl-alpha'
+  openrouter_api_key:
+    description: 'OpenRouter API key'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Write OpenCode config
+      shell: bash
+      run: |
+        cat > opencode.json << 'EOF'
+        {
+          "$schema": "https://opencode.ai/config.json",
+          "provider": {
+            "openrouter": {
+              "options": {
+                "apiKey": "{env:OPENROUTER_API_KEY}"
+              }
+            }
+          }
+        }
+        EOF
+
+    - name: Get opencode version
+      id: version
+      shell: bash
+      run: |
+        VERSION=$(curl -sf https://api.github.com/repos/anomalyco/opencode/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
+        echo "version=${VERSION:-latest}" >> $GITHUB_OUTPUT
+
+    - name: Cache opencode
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.opencode/bin
+        key: opencode-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.version }}
+
+    - name: Install opencode
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: curl -fsSL https://opencode.ai/install | bash
+
+    - name: Add opencode to PATH
+      shell: bash
+      run: echo "$HOME/.opencode/bin" >> $GITHUB_PATH
+
+    - name: Run opencode
+      shell: bash
+      run: opencode github run
+      env:
+        MODEL: ${{ inputs.model }}
+        OPENROUTER_API_KEY: ${{ inputs.openrouter_api_key }}
