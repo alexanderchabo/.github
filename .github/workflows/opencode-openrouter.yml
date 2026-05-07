@@ -38,6 +38,8 @@ jobs:
             }
           }
           EOF
+          echo "Written opencode.json to $(pwd):"
+          cat opencode.json
 
       - name: Get opencode version
         id: version
@@ -64,7 +66,11 @@ jobs:
 
       - name: Run opencode
         shell: bash
-        run: opencode github run
+        run: |
+          echo "Working directory: $(pwd)"
+          echo "opencode.json exists: $(test -f opencode.json && echo yes || echo no)"
+          ls -la opencode.json 2>/dev/null || echo "opencode.json not found in $(pwd)"
+          opencode github run
         env:
           MODEL: ${{ inputs.model }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
